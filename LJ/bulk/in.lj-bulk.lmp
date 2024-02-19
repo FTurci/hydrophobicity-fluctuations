@@ -7,7 +7,7 @@ variable        m index 100       # Main Run Timestep Multiplier
 variable        dt equal 0.01
 
 # model parameters
-variable        cutoff equal 4.0
+variable        cutoff equal 7.18
 
 # thermodynamics
 variable        targetP equal 0.064068
@@ -15,7 +15,7 @@ variable        targetP equal 0.064068
 variable        targetT equal 1.1476
 variable        targetRho equal 0.589
 # box 
-variable L equal 15.0
+variable L equal 2.5*${cutoff}
 variable hL equal $L*0.5
 variable N equal floor($L*$L*$L*${targetRho})
 # variable        p index 0       # Use Power Measurement
@@ -33,15 +33,16 @@ create_box 1 box
 
 create_atoms 1 random $N ${seed} box
 
-# pair_style lj/smooth/linear ${cutoff}
-pair_style lj/cut ${cutoff}
+pair_style lj/smooth/linear ${cutoff}
+# pair_style lj/cut ${cutoff}
+# pair_style lj/smooth 4.0 4.3
 pair_coeff * * 1.0 1.0
 pair_modify shift no tail no
 
 mass		1 1.0
 
 neighbor	0.3 bin 
-neigh_modify	every 1 delay 4
+neigh_modify	every 1 
 
 minimize 1.0e-4 1.0e-6 100 1000
 minimize 0.0 1.0e-8 1000 100000
@@ -55,7 +56,7 @@ thermo_style custom step pe etotal vol temp press density
 thermo_modify	norm yes
 
 # output
-variable csvname string "output-npt-larger-T${targetT}-P${targetP}.csv"
+variable csvname string "output-npt-smooth-linear-T${targetT}-P${targetP}.csv"
 fix extra all print 100 "$(step),$(temp),$(press),$(density)" file ${csvname} screen no title "step,temperature,pressure,density"
 
 thermo		100
