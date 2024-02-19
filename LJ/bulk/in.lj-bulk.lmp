@@ -1,0 +1,68 @@
+# Checking the thermodynamic properties of LJ fluid 
+
+variable        seed equal 1
+variable        w index 10      # Warmup Timesteps
+variable        t index 50000	# Main Run Timesteps
+variable        m index 100       # Main Run Timestep Multiplier
+variable        dt equal 0.01
+
+# model parameters
+variable        cutoff equal 4.0
+
+# thermodynamics
+variable        targetP equal 0.064068
+# variable        targetP equal 0.06
+variable        targetT equal 1.1476
+variable        targetRho equal 0.589
+# box 
+variable L equal 15.0
+variable hL equal $L*0.5
+variable N equal floor($L*$L*$L*${targetRho})
+# variable        p index 0       # Use Power Measurement
+
+variable	x index 4
+variable	y index 2
+variable	z index 2
+variable        rr equal floor($t*$m)
+
+units lj
+atom_style	   atomic
+
+region      box block -${hL} ${hL} -${hL} ${hL} -${hL} ${hL}
+create_box 1 box
+
+create_atoms 1 random $N ${seed} box
+
+# pair_style lj/smooth/linear ${cutoff}
+pair_style lj/cut ${cutoff}
+pair_coeff * * 1.0 1.0
+pair_modify shift no
+
+mass		1 1.0
+
+neighbor	0.3 bin 
+neigh_modify	every 1 delay 4
+
+minimize 1.0e-4 1.0e-6 100 1000
+minimize 0.0 1.0e-8 1000 100000
+
+# NPT simulation
+reset_timestep	0
+timestep ${dt}
+velocity	all zero linear
+
+thermo_style custom step pe etotal vol temp press density
+thermo_modify	norm yes
+
+# output
+variable csvname string "output-npt-larger-T${targetT}-P${targetP}.csv"
+fix extra all print 100 "$(step),$(temp),$(press),$(density)" file ${csvname} screen no title "step,temperature,pressure,density"
+
+thermo		100
+
+dump mydump all netcdf 1000 tj-lj-P${targetP}-T${targetT}.netcdf  type x y z 
+
+variable dump_time  equal floor(${dt}*100)
+fix		1 all npt temp ${targetT} ${targetT} ${dump_time} iso ${targetP} ${targetP} ${dump_time}
+# fix		1 all nvt temp ${targetT} ${targetT} ${dump_time} 
+run		${rr}
