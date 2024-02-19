@@ -36,7 +36,7 @@ create_atoms 1 random $N ${seed} box
 # pair_style lj/smooth/linear ${cutoff}
 pair_style lj/cut ${cutoff}
 pair_coeff * * 1.0 1.0
-pair_modify shift no
+pair_modify shift no tail no
 
 mass		1 1.0
 
