@@ -1,0 +1,234 @@
+LAMMPS (15 Jun 2023)
+# Checking the thermodynamic properties of LJ fluid
+
+variable        seed equal 1
+variable        w index 10      # Warmup Timesteps
+variable        t index 50000	# Main Run Timesteps
+variable        m index 100       # Main Run Timestep Multiplier
+variable        dt equal 0.005
+
+# model parameters
+variable        ljcutoff equal 5.0
+variable        solute_radius equal 4.0
+
+# thermodynamics
+variable        targetP equal 0.064068
+# variable        targetP equal 0.06
+variable        targetT equal 1.1476
+variable        targetRho equal 0.588
+# box
+variable L equal 25.5 #24.0 #2.5*${cutoff}
+variable hL equal $L*0.5
+variable hL equal 25.5*0.5
+variable N equal floor($L*$L*$L*${targetRho})
+variable N equal floor(25.5*$L*$L*${targetRho})
+variable N equal floor(25.5*25.5*$L*${targetRho})
+variable N equal floor(25.5*25.5*25.5*${targetRho})
+variable N equal floor(25.5*25.5*25.5*0.588)
+# variable        p index 0       # Use Power Measurement
+
+variable        rr equal floor($t*$m)
+variable        rr equal floor(50000*$m)
+variable        rr equal floor(50000*100)
+
+units lj
+atom_style	   atomic
+
+region      box block -${hL} ${hL} -${hL} ${hL} -${hL} ${hL}
+region      box block -12.75 ${hL} -${hL} ${hL} -${hL} ${hL}
+region      box block -12.75 12.75 -${hL} ${hL} -${hL} ${hL}
+region      box block -12.75 12.75 -12.75 ${hL} -${hL} ${hL}
+region      box block -12.75 12.75 -12.75 12.75 -${hL} ${hL}
+region      box block -12.75 12.75 -12.75 12.75 -12.75 ${hL}
+region      box block -12.75 12.75 -12.75 12.75 -12.75 12.75
+# slightly larger to accomodate the liquid later
+
+create_box 2 box
+Created orthogonal box = (-12.75 -12.75 -12.75) to (12.75 12.75 12.75)
+  1 by 2 by 2 MPI processor grid
+
+region      liquid_region sphere 0.0 0.0 0.0 6.0 side out
+
+
+create_atoms 1 random $N ${seed} liquid_region
+create_atoms 1 random 9749 ${seed} liquid_region
+create_atoms 1 random 9749 1 liquid_region
+Created 9749 atoms
+  using lattice units in orthogonal box = (-12.75 -12.75 -12.75) to (12.75 12.75 12.75)
+  create_atoms CPU = 0.001 seconds
+create_atoms 2 single 0.0 0.0 0.0
+Created 1 atoms
+  using lattice units in orthogonal box = (-12.75 -12.75 -12.75) to (12.75 12.75 12.75)
+  create_atoms CPU = 0.000 seconds
+
+pair_style  hybrid lj/smooth/linear ${ljcutoff} morse/smooth/linear ${solute_radius} #${cutoff}
+pair_style  hybrid lj/smooth/linear 5 morse/smooth/linear ${solute_radius} 
+pair_style  hybrid lj/smooth/linear 5 morse/smooth/linear 4 
+pair_coeff 1 1 lj/smooth/linear 1.0 1.0
+pair_coeff 1 2 morse/smooth/linear 2. 5.0 ${solute_radius} ${solute_radius}
+pair_coeff 1 2 morse/smooth/linear 2. 5.0 4 ${solute_radius}
+pair_coeff 1 2 morse/smooth/linear 2. 5.0 4 4
+# not needed now...
+pair_coeff 2 2 morse/smooth/linear 2. 5.0 ${solute_radius} ${solute_radius}
+pair_coeff 2 2 morse/smooth/linear 2. 5.0 4 ${solute_radius}
+pair_coeff 2 2 morse/smooth/linear 2. 5.0 4 4
+# pair_modify shift yes tail no
+
+
+
+# pair_modify tail yes
+
+mass		1 1.0
+mass		2 1.0
+
+group		solvent type 1
+9749 atoms in group solvent
+group		solute type 2
+1 atoms in group solute
+
+fix freeze solute setforce 0.0 0.0 0.0
+set group solute vx 0.0 vy 0.0 vz 0.0
+Setting atom values ...
+  1 settings made for vx
+  1 settings made for vy
+  1 settings made for vz
+
+
+neighbor	0.3 bin
+neigh_modify every 1  #delay 0 check no
+
+minimize 1.0e-4 1.0e-6 100 1000
+Generated 0 of 1 mixed pair_coeff terms from geometric mixing rule
+Neighbor list info ...
+  update: every = 1 steps, delay = 0 steps, check = yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 5.3
+  ghost atom cutoff = 5.3
+  binsize = 2.65, bins = 10 10 10
+  4 neighbor lists, perpetual/occasional/extra = 4 0 0
+  (1) pair lj/smooth/linear, perpetual, skip from (3)
+      attributes: half, newton on
+      pair build: skip
+      stencil: none
+      bin: none
+  (2) pair morse/smooth/linear, perpetual, skip from (4)
+      attributes: half, newton on, cut 4.3
+      pair build: skip
+      stencil: none
+      bin: none
+  (3) neighbor class addition, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d
+      bin: standard
+  (4) neighbor class addition, perpetual, trim from (3)
+      attributes: half, newton on, cut 4.3
+      pair build: trim
+      stencil: none
+      bin: none
+Per MPI rank memory allocation (min/avg/max) = 10.36 | 10.55 | 11.12 Mbytes
+   Step          Temp          E_pair         E_mol          TotEng         Press     
+         0   0              2.58116e+13    0              2.58116e+13    6.0709826e+13
+       100   0             -5.3608114      0             -5.3608114     -2.0197147    
+Loop time of 2.11557 on 4 procs for 100 steps with 9750 atoms
+
+99.2% CPU use with 4 MPI tasks x no OpenMP threads
+
+Minimization stats:
+  Stopping criterion = max iterations
+  Energy initial, next-to-last, final = 
+      25811599533205.3  -5.35062171602921  -5.36081139686343
+  Force two-norm initial, final = 1.0565514e+20 149.3632
+  Force max component initial, final = 7.1080026e+19 25.424896
+  Final line search alpha, max atom move = 0.0052886996 0.13446464
+  Iterations, force evaluations = 100 134
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 1.3683     | 1.4631     | 1.6083     |   7.7 | 69.16
+Neigh   | 0.38196    | 0.40053    | 0.43244    |   3.2 | 18.93
+Comm    | 0.060106   | 0.23727    | 0.35063    |  23.3 | 11.22
+Output  | 2.8457e-05 | 3.1592e-05 | 4.0814e-05 |   0.0 |  0.00
+Modify  | 0.0004041  | 0.00046501 | 0.00062405 |   0.0 |  0.02
+Other   |            | 0.01417    |            |       |  0.67
+
+Nlocal:         2437.5 ave        2518 max        2373 min
+Histogram: 1 0 1 0 0 1 0 0 0 1
+Nghost:        9228.75 ave        9289 max        9197 min
+Histogram: 1 1 1 0 0 0 0 0 0 1
+Neighs:              0 ave           0 max           0 min
+Histogram: 4 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0
+Neighbor list builds = 24
+Dangerous builds = 0
+
+# NPT simulation
+reset_timestep	0
+timestep ${dt}
+timestep 0.005
+# velocity  all create 1. 4321
+# velocity	all zero linear
+
+# compute allperatom all stress/atom NULL
+# compute allp all reduce sum c_allperatom[1] c_allperatom[2] c_allperatom[3]
+# variable allpress equal -(c_allp[1]+c_allp[2]+c_allp[3])/(3*vol)
+
+thermo_style custom step pe etotal vol temp press density vol
+# thermo_modify	norm yes
+
+# output
+# variable csvname string "output-npt-smooth-linear-T${targetT}-P${targetP}.csv"
+variable csvname string "output-nvt.csv"
+fix extra all print 100 "$(step),$(temp),$(press),$(density),$(vol)" file ${csvname} screen no title "step,temperature,pressure,density,volume"
+fix extra all print 100 "$(step),$(temp),$(press),$(density),$(vol)" file output-nvt.csv screen no title "step,temperature,pressure,density,volume"
+
+thermo		1000
+
+dump mydump all netcdf 1000 solute.netcdf  type x y z
+
+variable dump_time  equal floor(${dt}*100)
+variable dump_time  equal floor(0.005*100)
+# fix		1 all nvt temp ${targetT} ${targetT} 0.5
+
+fix		1 all npt temp ${targetT} ${targetT} 0.5 iso ${targetP} ${targetP} 1
+fix		1 all npt temp 1.1476 ${targetT} 0.5 iso ${targetP} ${targetP} 1
+fix		1 all npt temp 1.1476 1.1476 0.5 iso ${targetP} ${targetP} 1
+fix		1 all npt temp 1.1476 1.1476 0.5 iso 0.064068 ${targetP} 1
+fix		1 all npt temp 1.1476 1.1476 0.5 iso 0.064068 0.064068 1
+#iso ${targetP} ${targetP} 1
+# fix		1 all nvt temp ${targetT} ${targetT} 1
+# berendsen
+# fix 1 all temp/berendsen ${targetT} ${targetT} 1345 #${dump_time}
+# fix 1 all temp/berendsen ${targetT} ${targetT}
+
+# fix 1 all temp/rescale 10000 ${targetT} ${targetT}  0.1 1.0
+# fix 1 all langevin ${targetT} ${targetT}  10.0 48279
+# fix 2 all nve
+# fix 3 all press/berendsen iso  ${targetP} ${targetP} 0.1
+
+run		${rr}
+run		5000000
+Generated 0 of 1 mixed pair_coeff terms from geometric mixing rule
+Per MPI rank memory allocation (min/avg/max) = 9.248 | 9.441 | 10.02 Mbytes
+   Step         PotEng         TotEng         Volume          Temp          Press         Density         Volume    
+         0  -5.3608114     -5.3608114      16581.375      0             -2.0197147      0.58800914     16581.375    
+      1000  -5.0623024     -3.6602548      13831.717      0.93479426     0.19570019     0.70490164     13831.717    
+      2000  -3.8211938     -2.0857195      17266.835      1.1571015      0.11453911     0.56466631     17266.835    
+      3000  -3.7132741     -1.9802168      18017.959      1.15549        0.048584254    0.54112678     18017.959    
+      4000  -3.7106973     -1.9922206      18002.612      1.1457687      0.073993584    0.54158809     18002.612    
+      5000  -3.7146118     -2.0215951      17941.762      1.1287935      0.040549127    0.54342488     17941.762    
+      6000  -3.7342132     -2.0024307      17814.18       1.1546401      0.092866225    0.54731679     17814.18     
+      7000  -3.7064916     -1.9679611      17886.605      1.1591392      0.078057545    0.54510064     17886.605    
+      8000  -3.7277875     -2.0120656      17890.166      1.143932       0.033437028    0.54499215     17890.166    
+      9000  -3.7801661     -2.0753198      17626.053      1.1366808      0.028193744    0.55315845     17626.053    
+     10000  -3.6642815     -1.9554325      18220.919      1.1393495      0.052832002    0.53509925     18220.919    
+     11000  -3.7618764     -2.0366115      17686.641      1.1502946      0.050579617    0.55126352     17686.641    
+     12000  -3.7275637     -2.0042418      17825.888      1.1489992      0.021256295    0.54695734     17825.888    
+     13000  -3.7601966     -2.0662073      17601.351      1.1294421      0.075302248    0.55393476     17601.351    
+     14000  -3.6801157     -1.9575278      18179.573      1.1485097      0.033686539    0.53631623     18179.573    
+     15000  -3.767297      -2.0364999      17678.332      1.1539831      0.06467397     0.55152262     17678.332    
+     16000  -3.7771908     -2.0462847      17609.976      1.1540557      0.073490067    0.55366346     17609.976    
+     17000  -3.654326      -1.9244187      18263.7        1.1
