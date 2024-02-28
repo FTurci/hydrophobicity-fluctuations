@@ -5,7 +5,7 @@ variable        w index 10      # Warmup Timesteps
 variable        dt equal 0.005
 
 # model parameters
-variable        ljcutoff equal 4.0 
+variable        ljcutoff equal 2.5 
 variable        solute_radius equal 4.0
 
 # thermodynamics
@@ -14,7 +14,7 @@ variable        targetP equal 0.064068
 variable        targetT equal 1.1476
 variable        targetRho equal 0.588
 # box 
-variable L equal 30.0 #24.0 #2.5*${cutoff}
+variable L equal 20.0 #24.0 #2.5*${cutoff}
 variable hL equal $L*0.5
 variable N equal floor($L*$L*$L*${targetRho})
 # variable        p index 0       # Use Power Measurement
@@ -93,20 +93,20 @@ fix		1 all npt temp ${targetT} ${targetT} 0.5 iso ${targetP} ${targetP} 1
 fix extra all print 1000 "$(step),$(temp),$(press),$(density),$(vol)" file ${csvname} screen no title "step,temperature,pressure,density,volume"
 
 # construct chunks for 3d binning
-region     local  block -${hL} ${hL} -${hL} ${hL} -${hL} ${hL}
+region     local  block -5 5 -5 5 -5 5
 
-# compute chunks      all chunk/atom bin/3d x lower 0.25 y lower 0.25 z lower 0.25 region local
-# variable counter atom 1
-# compute n1      all  reduce/chunk chunks sum v_counter
-# compute n1a     all  chunk/spread/atom chunks c_n1
-# # compute n2      all  reduce/chunk chunks sum c_n1a
-# # compute n2a     all  chunk/spread/atom chunks c_n2
+compute chunks      all chunk/atom bin/3d x -5 0.25 y -5 0.25 z -5 0.25 bound x -5 5  bound y -5 5  bound z -5 5  discard yes
+variable counter atom 1
+compute n1      all  reduce/chunk chunks sum v_counter
+compute n1a     all  chunk/spread/atom chunks c_n1
+# compute n2      all  reduce/chunk chunks sum c_n1a
+# compute n2a     all  chunk/spread/atom chunks c_n2
 
-# # fix ID group-ID ave/chunk Nevery Nrepeat Nfreq chunkID value1 value2 ... keyword args ...
-# fix ave all ave/chunk 1000 1 1000 chunks c_n1a  ave running file chucnk.profile overwrite
+# fix ID group-ID ave/chunk Nevery Nrepeat Nfreq chunkID value1 value2 ... keyword args ...
+fix ave all ave/chunk 1000 1 1000 chunks c_n1a  ave running file chucnk.profile overwrite
 
 
 # dump mydump all custom 1000 ${dumpname}  type x y z 
 # dump_modify mydump first yes
 
-run		6000 #${production}
+run		${production}
