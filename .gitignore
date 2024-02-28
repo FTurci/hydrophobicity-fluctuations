@@ -1,3 +1,5 @@
 *.atom
 .DS_Store
 *.netcdf
+*.o*
+*.e*
