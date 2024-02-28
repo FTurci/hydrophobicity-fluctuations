@@ -95,7 +95,7 @@ fix extra all print 1000 "$(step),$(temp),$(press),$(density),$(vol)" file ${csv
 # construct chunks for 3d binning
 region     local  block -5 5 -5 5 -5 5
 
-compute chunks      all chunk/atom bin/3d x -5 0.25 y -5 0.25 z -5 0.25 bound x -5 5  bound y -5 5  bound z -5 5  discard yes
+compute chunks      all chunk/atom bin/3d x -5 0.5 y -5 0.5 z -5 0.5 bound x -5 5  bound y -5 5  bound z -5 5  
 variable counter atom 1
 compute n1      all  reduce/chunk chunks sum v_counter
 compute n1a     all  chunk/spread/atom chunks c_n1
