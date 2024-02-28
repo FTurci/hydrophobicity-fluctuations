@@ -1,0 +1,94 @@
+# Checking the thermodynamic properties of LJ fluid 
+
+variable        seed equal 1
+variable        w index 10      # Warmup Timesteps
+variable        dt equal 0.005
+
+# model parameters
+variable        ljcutoff equal 5.0 
+variable        solute_radius equal 4.0
+
+# thermodynamics
+variable        targetP equal 0.064068
+# variable        targetP equal 0.06
+variable        targetT equal 1.1476
+variable        targetRho equal 0.588
+# box 
+variable L equal 30.0 #24.0 #2.5*${cutoff}
+variable hL equal $L*0.5
+variable N equal floor($L*$L*$L*${targetRho})
+# variable        p index 0       # Use Power Measurement
+
+variable        equilibration equal 50000
+variable        production equal 500000
+
+units lj
+atom_style	   atomic
+
+region      box block -${hL} ${hL} -${hL} ${hL} -${hL} ${hL}
+# slightly larger to accomodate the liquid later
+
+create_box 2 box
+
+region      liquid_region sphere 0.0 0.0 0.0 6.0 side out
+
+
+create_atoms 1 random $N ${seed} liquid_region
+create_atoms 2 single 0.0 0.0 0.0
+
+pair_style  hybrid lj/smooth/linear ${ljcutoff} morse/smooth/linear ${solute_radius} #${cutoff}
+pair_coeff 1 1 lj/smooth/linear 1.0 1.0
+pair_coeff 1 2 morse/smooth/linear 2. 5.0 ${solute_radius} ${solute_radius}
+# not needed now...
+pair_coeff 2 2 morse/smooth/linear 2. 5.0 ${solute_radius} ${solute_radius}
+# pair_modify shift yes tail no
+
+
+
+# pair_modify tail yes
+
+mass		1 1.0
+mass		2 1.0
+
+group		solvent type 1
+group		solute type 2
+
+fix freeze solute setforce 0.0 0.0 0.0
+set group solute vx 0.0 vy 0.0 vz 0.0
+
+
+neighbor	0.3 bin 
+neigh_modify every 1  #delay 0 check no
+
+minimize 1.0e-4 1.0e-6 100 1000
+
+# NPT simulation
+reset_timestep	0
+timestep ${dt}
+# velocity  all create 1. 4321
+# velocity	all zero linear
+
+# compute allperatom all stress/atom NULL
+# compute allp all reduce sum c_allperatom[1] c_allperatom[2] c_allperatom[3]
+# variable allpress equal -(c_allp[1]+c_allp[2]+c_allp[3])/(3*vol)
+
+thermo_style custom step pe etotal vol temp press density vol
+# thermo_modify	norm yes
+
+# output
+# variable csvname string "output-npt-smooth-linear-T${targetT}-P${targetP}.csv"
+variable csvname string "tj/output-nvt.csv"
+fix extra all print 100 "$(step),$(temp),$(press),$(density),$(vol)" file ${csvname} screen no title "step,temperature,pressure,density,volume"
+
+thermo		1000
+
+dump mydump all custom/gz 100 tj/solute.*.atom.gz  type x y z 
+dump_modify mydump first yes
+
+variable dump_time  equal floor(${dt}*100)
+# fix		1 all nvt temp ${targetT} ${targetT} 0.5 
+
+fix		1 all npt temp ${targetT} ${targetT} 0.5 iso ${targetP} ${targetP} 1 
+
+run		${equilibration}
+run		${production}
