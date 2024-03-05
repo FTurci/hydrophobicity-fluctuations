@@ -93,17 +93,21 @@ fix		1 all npt temp ${targetT} ${targetT} 0.5 iso ${targetP} ${targetP} 1
 fix extra all print 1000 "$(step),$(temp),$(press),$(density),$(vol)" file ${csvname} screen no title "step,temperature,pressure,density,volume"
 
 # construct chunks for 3d binning
-region     local  block -5 5 -5 5 -5 5
+# region     local  block -5 5 -5 5 -5 5
 
-compute chunks      all chunk/atom bin/3d x -5 0.5 y -5 0.5 z -5 0.5 bound x -5 5  bound y -5 5  bound z -5 5  
+
+
+compute chunks      solvent chunk/atom bin/3d x -5 2.0 y -5 2.0 z -5 2.0 bound x -5 5  bound y -5 5  bound z -5 5 
 variable counter atom 1
-compute n1      all  reduce/chunk chunks sum v_counter
-compute n1a     all  chunk/spread/atom chunks c_n1
-# compute n2      all  reduce/chunk chunks sum c_n1a
-# compute n2a     all  chunk/spread/atom chunks c_n2
+compute n1      solvent  reduce/chunk chunks sum v_counter
+compute n1a     solvent  chunk/spread/atom chunks c_n1
+# compute n2      solvent  reduce/chunk chunks sum c_n1a
+# compute n2a     solvent  chunk/spread/atom chunks c_n2
 
 # fix ID group-ID ave/chunk Nevery Nrepeat Nfreq chunkID value1 value2 ... keyword args ...
-fix ave all ave/chunk 1000 1 1000 chunks c_n1a  ave running file chucnk.profile overwrite
+fix ave solvent ave/chunk 1000 1 1000 chunks c_n1a density/number norm none ave running file chunk.profile overwrite
+
+# overwrite
 
 
 # dump mydump all custom 1000 ${dumpname}  type x y z 
