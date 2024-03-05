@@ -1,0 +1,97 @@
+# Coarse-grain water simulation using Stillinger-Weber
+
+variable        N index on      # Newton Setting
+variable        w index 10      # Warmup Timesteps
+variable        t index 50000	# Main Run Timesteps
+variable        m index 1       # Main Run Timestep Multiplier
+variable        n index 0       # Use NUMA Mapping for Multi-Node
+# variable        p index 0       # Use Power Measurement
+
+variable	x index 4
+variable	y index 2
+variable	z index 2
+variable        rr equal floor($t*$m)
+
+newton          $N
+if "$n > 0"     then "processors * * * grid numa"
+
+units		real
+atom_style	atomic
+
+# read_data	mW_32k_cube.data
+# read_data	onlyWater.start
+read_data	mW.start
+
+
+# create amphiphile
+
+# create_atoms 2 single -0.5 0 0
+# create_atoms 3 single 0.5 0 0
+
+
+reset_timestep	0
+
+# pair_style hybrid sw threebody on lj/cut 6.0
+# pair_coeff	* * sw mW.sw mW NULL
+# pair_coeff 1 2 lj/cut ${solute_diam}  5.0
+# pair_coeff 2 2 lj/cut 3.5 5.0
+
+variable solute_diam equal 3.0
+
+pair_style hybrid sw threebody on morse/smooth/linear 6.0
+
+# find a way to keep the core independent from the attraction
+pair_coeff	* * sw mW.sw mW NULL NULL
+pair_coeff 1 2 morse/smooth/linear  2.5 5.0 ${solute_diam} 6.0
+pair_coeff 1 3 morse/smooth/linear  2.5 5.0 ${solute_diam} ${solute_diam} 
+
+
+
+pair_coeff 2 2 morse/smooth/linear  2.5 5.0 ${solute_diam} ${solute_diam} 
+pair_coeff 3 3 morse/smooth/linear  2.5 5.0 ${solute_diam} ${solute_diam} 
+pair_coeff 2 3 morse/smooth/linear  2.5 5.0 ${solute_diam} ${solute_diam} 
+
+mass		1 18.015 #g/mol
+mass		2 18.015 #g/mol
+mass		3 18.015 #g/mol
+
+group		mW type 1
+group		a2 type 2
+group		a3 type 3
+
+neighbor	2 bin #Angstroms
+neigh_modify	every 1 delay 4
+
+fix freeze2 a2 setforce 0.0 0.0 0.0
+fix freeze3 a3 setforce 0.0 0.0 0.0
+velocity	mW zero linear
+set group a2 vx 0.0 vy 0.0 vz 0.0
+set group a3 vx 0.0 vy 0.0 vz 0.0
+
+fix		1 all nvt temp 300.0 300.0 1000.0
+
+# fix		1 all npt temp 300.0 300.0 1000.0 iso 0.0 0.0 1000000.0
+
+
+
+# timestep	10 #femtoseconds
+timestep	5.0
+
+
+thermo_modify	norm yes
+
+thermo		100
+
+
+dump mydump all atom 1000 tj-amphi.atom 
+minimize 1.0e-4 1.0e-6 100 1000
+minimize 0.0 1.0e-8 1000 100000
+# if "$p > 0"     then "run_style verlet/power"
+
+# if "$w > 0"     then "run $w"
+run		${rr}
+
+unfix 1
+fix		1 all npt temp 300.0 300.0 1000.0 iso 0.0 0.0 1000.0
+
+run		${rr}
